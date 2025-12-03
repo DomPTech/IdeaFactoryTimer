@@ -24,11 +24,11 @@ const testAudioBtn = document.getElementById('test-audio-btn');
 async function init() {
     await initStorage();
     await initAudio();
-    
+
     buzzTimes = getBuzzTimes();
     renderBuzzTimes();
     updateClock();
-    
+
     // Check if we have custom audio
     const audioFile = await getAudio();
     if (audioFile) {
@@ -45,9 +45,15 @@ function updateClock() {
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
-    const timeString = `${hours}:${minutes}:${seconds}`;
-    
-    currentTimeEl.textContent = timeString;
+
+    // Display in 12-hour format
+    let displayHours = now.getHours();
+    const ampm = displayHours >= 12 ? 'PM' : 'AM';
+    displayHours = displayHours % 12;
+    displayHours = displayHours ? displayHours : 12; // the hour '0' should be '12'
+    const displayString = `${displayHours}:${minutes}:${seconds} <span style="font-size: 0.5em">${ampm}</span>`;
+
+    currentTimeEl.innerHTML = displayString;
 
     // Check for Buzz
     // We only want to trigger exactly at :00 seconds
@@ -70,9 +76,9 @@ function updateNextBuzz(now) {
     // Find next buzz time
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     const sortedTimes = [...buzzTimes].sort();
-    
+
     let nextTimeStr = null;
-    
+
     for (const time of sortedTimes) {
         const [h, m] = time.split(':').map(Number);
         const timeMinutes = h * 60 + m;
@@ -92,7 +98,7 @@ function updateNextBuzz(now) {
     const [nextH, nextM] = nextTimeStr.split(':').map(Number);
     let target = new Date(now);
     target.setHours(nextH, nextM, 0, 0);
-    
+
     if (target < now) {
         target.setDate(target.getDate() + 1);
     }
@@ -108,10 +114,10 @@ function updateNextBuzz(now) {
 function triggerBuzz() {
     if (isFlashing) return;
     isFlashing = true;
-    
+
     console.log("BUZZ!");
     playAudio();
-    
+
     flashOverlay.classList.add('flashing');
     flashOverlay.style.opacity = '0.5';
 
@@ -127,12 +133,20 @@ function triggerBuzz() {
 function renderBuzzTimes() {
     buzzTimesList.innerHTML = '';
     const sortedTimes = [...buzzTimes].sort();
-    
+
     sortedTimes.forEach(time => {
+        // Convert to 12-hour for display
+        const [h, m] = time.split(':');
+        let hour = parseInt(h);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        hour = hour % 12;
+        hour = hour ? hour : 12;
+        const displayTime = `${hour}:${m} ${ampm}`;
+
         const li = document.createElement('li');
         li.className = 'buzz-time-item';
         li.innerHTML = `
-            <span>${time}</span>
+            <span>${displayTime}</span>
             <button class="delete-btn" data-time="${time}">&times;</button>
         `;
         buzzTimesList.appendChild(li);
