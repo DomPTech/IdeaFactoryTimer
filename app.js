@@ -22,17 +22,30 @@ const testAudioBtn = document.getElementById('test-audio-btn');
 
 // Initialization
 async function init() {
-    await initStorage();
-    await initAudio();
+    try {
+        await initStorage();
+    } catch (e) {
+        console.error("Storage init failed (likely browser restriction), continuing:", e);
+    }
+
+    try {
+        await initAudio();
+    } catch (e) {
+        console.error("Audio init failed:", e);
+    }
 
     buzzTimes = getBuzzTimes();
     renderBuzzTimes();
     updateClock();
 
     // Check if we have custom audio
-    const audioFile = await getAudio();
-    if (audioFile) {
-        currentAudioName.textContent = audioFile.name;
+    try {
+        const audioFile = await getAudio();
+        if (audioFile) {
+            currentAudioName.textContent = audioFile.name;
+        }
+    } catch (e) {
+        console.log("Could not load custom audio");
     }
 
     // Start Clock Loop
@@ -132,24 +145,44 @@ function triggerBuzz() {
 // UI Logic
 function renderBuzzTimes() {
     buzzTimesList.innerHTML = '';
+
+    if (!Array.isArray(buzzTimes)) {
+        buzzTimes = [];
+    }
+
+    if (buzzTimes.length === 0) {
+        buzzTimesList.innerHTML = '<li style="padding: 1rem; text-align: center; color: var(--text-secondary);">No buzz times set</li>';
+        return;
+    }
+
     const sortedTimes = [...buzzTimes].sort();
 
     sortedTimes.forEach(time => {
-        // Convert to 12-hour for display
-        const [h, m] = time.split(':');
-        let hour = parseInt(h);
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        hour = hour % 12;
-        hour = hour ? hour : 12;
-        const displayTime = `${hour}:${m} ${ampm}`;
+        try {
+            if (!time || !time.includes(':')) return;
 
-        const li = document.createElement('li');
-        li.className = 'buzz-time-item';
-        li.innerHTML = `
-            <span>${displayTime}</span>
-            <button class="delete-btn" data-time="${time}">&times;</button>
-        `;
-        buzzTimesList.appendChild(li);
+            // Convert to 12-hour for display
+            const [h, m] = time.split(':');
+            let hour = parseInt(h);
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            hour = hour % 12;
+            hour = hour ? hour : 12;
+            const displayTime = `${hour}:${m} ${ampm}`;
+
+            const li = document.createElement('li');
+            li.className = 'buzz-time-item';
+            li.innerHTML = `
+                <span class="time-display">${displayTime}</span>
+                <input type="time" class="time-edit" value="${time}" style="display: none;">
+                <div class="time-actions">
+                    <button class="edit-btn" data-time="${time}" aria-label="Edit">Edit</button>
+                    <button class="delete-btn" data-time="${time}" aria-label="Delete">Delete</button>
+                </div>
+            `;
+            buzzTimesList.appendChild(li);
+        } catch (e) {
+            console.error("Error rendering time:", time, e);
+        }
     });
 }
 
@@ -173,6 +206,30 @@ buzzTimesList.addEventListener('click', (e) => {
         removeBuzzTime(time);
         buzzTimes = getBuzzTimes();
         renderBuzzTimes();
+    } else if (e.target.classList.contains('edit-btn')) {
+        const li = e.target.closest('.buzz-time-item');
+        const timeDisplay = li.querySelector('.time-display');
+        const timeEdit = li.querySelector('.time-edit');
+        const editBtn = li.querySelector('.edit-btn');
+
+        if (timeEdit.style.display === 'none') {
+            // Enter edit mode
+            timeDisplay.style.display = 'none';
+            timeEdit.style.display = 'inline-block';
+            editBtn.textContent = 'Save';
+            editBtn.style.color = 'var(--success-color)';
+        } else {
+            // Save edit
+            const oldTime = e.target.dataset.time;
+            const newTime = timeEdit.value;
+
+            if (newTime && newTime !== oldTime) {
+                removeBuzzTime(oldTime);
+                addBuzzTime(newTime);
+                buzzTimes = getBuzzTimes();
+            }
+            renderBuzzTimes();
+        }
     }
 });
 

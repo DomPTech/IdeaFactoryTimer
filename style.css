@@ -44,8 +44,13 @@ body {
 }
 
 @keyframes flash {
-    0% { opacity: 0; }
-    100% { opacity: 0.5; }
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 0.5;
+    }
 }
 
 .container {
@@ -212,11 +217,33 @@ button:hover {
     border-bottom: none;
 }
 
+.time-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.time-edit {
+    font-size: 1rem;
+}
+
+.edit-btn {
+    background: none;
+    color: var(--accent-color);
+    padding: 0.25rem;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.edit-btn:hover {
+    background: none;
+    color: var(--accent-hover);
+}
+
 .delete-btn {
     background: none;
     color: var(--danger-color);
     padding: 0.25rem;
-    font-size: 1.2rem;
+    font-size: 1rem;
     line-height: 1;
 }
 
@@ -260,7 +287,7 @@ input[type="file"] {
     #current-time {
         font-size: 5rem;
     }
-    
+
     .container {
         padding: 1rem;
     }
