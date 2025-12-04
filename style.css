@@ -79,6 +79,11 @@ header {
     background-color: white;
     padding: 0.5rem;
     border-radius: 0.5rem;
+    transition: height 0.1s;
+}
+
+.logo:hover {
+    height: 70px;
 }
 
 .icon-btn {
