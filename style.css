@@ -72,12 +72,13 @@ header {
     margin-bottom: 4rem;
 }
 
-h1 {
-    font-weight: 700;
-    font-size: 1.5rem;
-    letter-spacing: 0.05em;
-    color: var(--accent-color);
-    text-transform: uppercase;
+.logo {
+    height: 60px;
+    width: auto;
+    object-fit: contain;
+    background-color: white;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
 }
 
 .icon-btn {
