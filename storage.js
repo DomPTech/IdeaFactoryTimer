@@ -47,6 +47,15 @@ export function removeBuzzTime(time) {
     localStorage.setItem('buzzTimes', JSON.stringify(times));
 }
 
+export function getVolume() {
+    const volume = localStorage.getItem('volume');
+    return volume ? parseFloat(volume) : 1.0;
+}
+
+export function saveVolume(volume) {
+    localStorage.setItem('volume', volume);
+}
+
 // IndexedDB for Audio
 export function saveAudio(file) {
     return new Promise((resolve, reject) => {

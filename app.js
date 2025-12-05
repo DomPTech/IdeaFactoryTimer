@@ -1,5 +1,5 @@
-import { initStorage, getBuzzTimes, addBuzzTime, removeBuzzTime, saveAudio, getAudio } from './storage.js';
-import { initAudio, playAudio } from './audio.js';
+import { initStorage, getBuzzTimes, addBuzzTime, removeBuzzTime, saveAudio, getAudio, getVolume, saveVolume } from './storage.js';
+import { initAudio, playAudio, setVolume } from './audio.js';
 
 // State
 let buzzTimes = [];
@@ -19,6 +19,8 @@ const buzzTimesList = document.getElementById('buzz-times-list');
 const audioUpload = document.getElementById('audio-upload');
 const currentAudioName = document.getElementById('current-audio-name');
 const testAudioBtn = document.getElementById('test-audio-btn');
+const volumeSlider = document.getElementById('volume-slider');
+const volumeDisplay = document.getElementById('volume-display');
 
 // Initialization
 async function init() {
@@ -27,6 +29,12 @@ async function init() {
     } catch (e) {
         console.error("Storage init failed (likely browser restriction), continuing:", e);
     }
+
+    // Load Volume
+    const savedVolume = getVolume();
+    setVolume(savedVolume);
+    volumeSlider.value = savedVolume * 100;
+    volumeDisplay.textContent = `${Math.round(savedVolume * 100)}%`;
 
     try {
         await initAudio();
@@ -241,6 +249,15 @@ audioUpload.addEventListener('change', async (e) => {
         // Reload audio context with new file
         await initAudio();
     }
+});
+
+volumeSlider.addEventListener('input', (e) => {
+    const value = e.target.value;
+    const volume = value / 100;
+
+    volumeDisplay.textContent = `${value}%`;
+    setVolume(volume);
+    saveVolume(volume);
 });
 
 testAudioBtn.addEventListener('click', () => {

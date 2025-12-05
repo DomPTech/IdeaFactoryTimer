@@ -2,20 +2,38 @@ import { getAudio } from './storage.js';
 
 let audioContext;
 let audioBuffer;
+let masterGain;
+let currentVolume = 1.0;
+
+export function setVolume(val) {
+    currentVolume = val;
+    if (masterGain) {
+        masterGain.gain.setValueAtTime(val, audioContext.currentTime);
+    }
+}
 
 export async function initAudio() {
     try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        audioContext = new AudioContext();
+        // Only create context if it doesn't exist or was closed
+        if (!audioContext || audioContext.state === 'closed') {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioContext = new AudioContext();
+        }
+
+        // Create master gain if needed
+        if (!masterGain) {
+            masterGain = audioContext.createGain();
+            masterGain.gain.value = currentVolume;
+            masterGain.connect(audioContext.destination);
+        }
 
         // Try to load custom audio
         const file = await getAudio();
         if (file) {
             const arrayBuffer = await file.arrayBuffer();
+            // Decode audio data - this requires a new buffer each time we decode
             audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
         } else {
-            // Create a simple beep if no audio
-            // We won't create a buffer here, we'll generate it on fly in playAudio if buffer is null
             audioBuffer = null;
         }
     } catch (e) {
@@ -31,26 +49,34 @@ export function playAudio() {
         audioContext.resume();
     }
 
-    const source = audioContext.createBufferSource();
+    // Ensure master gain is connected (in case of context reset/issues)
+    if (!masterGain) {
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = currentVolume;
+        masterGain.connect(audioContext.destination);
+    }
 
     if (audioBuffer) {
+        const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
+        source.connect(masterGain);
         source.start(0);
     } else {
         // Fallback Beep
         const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+        const envelopeGain = audioContext.createGain();
 
         oscillator.type = 'sine';
         oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4
         oscillator.frequency.exponentialRampToValueAtTime(880, audioContext.currentTime + 0.1);
 
-        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        // Envelope for the beep itself
+        envelopeGain.gain.setValueAtTime(0.5, audioContext.currentTime);
+        envelopeGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
 
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+        oscillator.connect(envelopeGain);
+        // Connect envelope to master volume
+        envelopeGain.connect(masterGain);
 
         oscillator.start();
         oscillator.stop(audioContext.currentTime + 0.5);
