@@ -1,10 +1,15 @@
-import { initStorage, getBuzzTimes, addBuzzTime, removeBuzzTime, saveAudio, getAudio, getVolume, saveVolume } from './storage.js';
+import { initStorage, getBuzzTimes, addBuzzTime, removeBuzzTime, saveAudio, getAudio, getVolume, saveVolume, saveImage, getImages, removeImage } from './storage.js';
 import { initAudio, playAudio, setVolume } from './audio.js';
 
 // State
 let buzzTimes = [];
 let nextBuzzTime = null;
 let isFlashing = false;
+let slideshowImages = []; // {key, file, url}
+let slideshowIndex = 0;
+let slideshowTimer = null;
+let slideshowEnabled = false;
+let slideshowInterval = 5000;
 
 // DOM Elements
 const currentTimeEl = document.getElementById('current-time');
@@ -21,6 +26,11 @@ const currentAudioName = document.getElementById('current-audio-name');
 const testAudioBtn = document.getElementById('test-audio-btn');
 const volumeSlider = document.getElementById('volume-slider');
 const volumeDisplay = document.getElementById('volume-display');
+const enableSlideshowCheckbox = document.getElementById('enable-slideshow');
+const imagesUpload = document.getElementById('images-upload');
+const slideshowEl = document.getElementById('slideshow');
+const slideshowImagesList = document.getElementById('slideshow-images-list');
+const slideshowIntervalInput = document.getElementById('slideshow-interval');
 
 // Initialization
 async function init() {
@@ -54,6 +64,24 @@ async function init() {
         }
     } catch (e) {
         console.log("Could not load custom audio");
+    }
+
+    // Load persisted slideshow settings (read before loading images so render works on reload)
+    slideshowEnabled = localStorage.getItem('slideshowEnabled') === 'true';
+    slideshowInterval = parseInt(localStorage.getItem('slideshowInterval') || '5', 10) * 1000;
+    enableSlideshowCheckbox.checked = slideshowEnabled;
+    slideshowIntervalInput.value = Math.max(1, slideshowInterval / 1000);
+
+    // Load slideshow images from storage
+    try {
+        const images = await getImages();
+        await loadSlideshowImages(images || []);
+    } catch (e) {
+        console.warn('Could not load slideshow images', e);
+    }
+
+    if (slideshowEnabled && slideshowImages.length > 0) {
+        startSlideshow();
     }
 
     // Start Clock Loop
@@ -262,6 +290,183 @@ volumeSlider.addEventListener('input', (e) => {
 
 testAudioBtn.addEventListener('click', () => {
     triggerBuzz();
+});
+
+// Slideshow helpers
+async function loadSlideshowImages(items) {
+    slideshowImages = [];
+    for (const it of items) {
+        try {
+            const file = it.file;
+            const url = URL.createObjectURL(file);
+            slideshowImages.push({ key: it.key, file, url });
+        } catch (e) {
+            console.warn('Error loading image item', it, e);
+        }
+    }
+    renderSlideshowList();
+    renderSlideshow();
+}
+
+function renderSlideshow() {
+    slideshowEl.innerHTML = '';
+    // Hide container if slideshow is disabled or there are no images
+    if (!slideshowEnabled || !slideshowImages || slideshowImages.length === 0) {
+        slideshowEl.setAttribute('aria-hidden', 'true');
+        slideshowEl.style.display = 'none';
+        return;
+    }
+
+    slideshowEl.setAttribute('aria-hidden', 'false');
+    slideshowEl.style.display = '';
+    slideshowImages.forEach((imgObj, idx) => {
+        const img = document.createElement('img');
+        img.src = imgObj.url;
+        img.alt = imgObj.file.name || `slide-${idx}`;
+        if (idx === slideshowIndex) img.classList.add('visible');
+        slideshowEl.appendChild(img);
+    });
+}
+
+function renderSlideshowList() {
+    slideshowImagesList.innerHTML = '';
+    if (!slideshowImages || slideshowImages.length === 0) {
+        slideshowImagesList.innerHTML = '<li style="padding: 0.5rem; color: var(--text-secondary);">No images uploaded</li>';
+        return;
+    }
+
+    slideshowImages.forEach(item => {
+        const li = document.createElement('li');
+        const left = document.createElement('div');
+        left.style.display = 'flex';
+        left.style.alignItems = 'center';
+        const thumb = document.createElement('img');
+        thumb.src = item.url;
+        thumb.className = 'thumb';
+        const name = document.createElement('span');
+        name.textContent = item.file.name || item.key;
+        left.appendChild(thumb);
+        left.appendChild(name);
+
+        const actions = document.createElement('div');
+        actions.className = 'image-actions';
+        const del = document.createElement('button');
+        del.textContent = 'Delete';
+        del.dataset.key = item.key;
+        actions.appendChild(del);
+
+        li.appendChild(left);
+        li.appendChild(actions);
+        slideshowImagesList.appendChild(li);
+    });
+}
+
+function showSlide(index) {
+    const imgs = slideshowEl.querySelectorAll('img');
+    imgs.forEach((img, i) => {
+        if (i === index) img.classList.add('visible');
+        else img.classList.remove('visible');
+    });
+}
+
+function nextSlide() {
+    if (!slideshowImages || slideshowImages.length === 0) return;
+    slideshowIndex = (slideshowIndex + 1) % slideshowImages.length;
+    showSlide(slideshowIndex);
+}
+
+function startSlideshow() {
+    if (!slideshowImages || slideshowImages.length === 0) return;
+    stopSlideshow();
+    // Ensure DOM is rendered before showing slides
+    renderSlideshow();
+    showSlide(slideshowIndex);
+    slideshowTimer = setInterval(nextSlide, slideshowInterval);
+}
+
+function stopSlideshow() {
+    if (slideshowTimer) {
+        clearInterval(slideshowTimer);
+        slideshowTimer = null;
+    }
+}
+
+// Slideshow event handlers
+imagesUpload.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    for (const file of files) {
+        try {
+            const key = await saveImage(file);
+            const url = URL.createObjectURL(file);
+            slideshowImages.push({ key, file, url });
+        } catch (err) {
+            console.warn('Failed to save image', err);
+        }
+    }
+    renderSlideshowList();
+    renderSlideshow();
+    // If user uploads images, enable and start slideshow automatically
+    if (!slideshowEnabled && slideshowImages.length > 0) {
+        slideshowEnabled = true;
+        enableSlideshowCheckbox.checked = true;
+        localStorage.setItem('slideshowEnabled', 'true');
+    }
+    if (slideshowImages.length > 0) {
+        slideshowIndex = 0;
+        startSlideshow();
+    }
+    imagesUpload.value = '';
+});
+
+// Use event delegation on the settings dialog so the handler still works
+// if elements are re-rendered or queried at different times.
+settingsModal.addEventListener('change', (e) => {
+    const target = e.target;
+    if (!target) return;
+    if (target.id === 'enable-slideshow') {
+        slideshowEnabled = !!target.checked;
+        localStorage.setItem('slideshowEnabled', slideshowEnabled);
+        if (slideshowEnabled) {
+            // reset to first slide when enabling
+            slideshowIndex = 0;
+            renderSlideshow();
+            startSlideshow();
+        } else {
+            stopSlideshow();
+            renderSlideshow();
+        }
+    }
+});
+
+slideshowIntervalInput.addEventListener('input', (e) => {
+    const val = Math.max(1, parseInt(e.target.value || '5', 10));
+    slideshowInterval = val * 1000;
+    localStorage.setItem('slideshowInterval', val.toString());
+    if (slideshowTimer) {
+        startSlideshow();
+    }
+});
+
+slideshowImagesList.addEventListener('click', async (e) => {
+    if (e.target.tagName === 'BUTTON') {
+        const key = e.target.dataset.key;
+        if (!key) return;
+        try {
+            await removeImage(key);
+        } catch (err) {
+            console.warn('Failed to remove image from DB', err);
+        }
+        // remove from memory and revoke URL
+        const idx = slideshowImages.findIndex(i => i.key === key);
+        if (idx !== -1) {
+            URL.revokeObjectURL(slideshowImages[idx].url);
+            slideshowImages.splice(idx, 1);
+            if (slideshowIndex >= slideshowImages.length) slideshowIndex = 0;
+        }
+        renderSlideshowList();
+        renderSlideshow();
+        if (slideshowImages.length === 0) stopSlideshow();
+    }
 });
 
 // Start

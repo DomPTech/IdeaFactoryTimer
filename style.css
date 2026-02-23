@@ -102,8 +102,10 @@ header {
 main {
     flex: 1;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+    gap: 1.5rem;
 }
 
 .clock-display {
@@ -263,6 +265,7 @@ button:hover {
     flex-direction: column;
     gap: 0.5rem;
     margin-bottom: 1rem;
+    padding: 0.5rem;
 }
 
 input[type="file"] {
@@ -337,4 +340,69 @@ input[type="range"]::-webkit-slider-thumb:hover {
     .container {
         padding: 1rem;
     }
+}
+
+/* Slideshow styles */
+.slideshow {
+    margin-top: 2rem;
+    width: 100%;
+    height: 300px;
+    min-height: 200px;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+    position: relative;
+}
+
+.slideshow img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+    opacity: 0;
+    transition: opacity 0.8s ease-in-out, transform 0.8s ease-in-out;
+    transform: scale(1.02);
+    pointer-events: none;
+}
+
+.slideshow img.visible {
+    opacity: 1;
+    transform: scale(1);
+    z-index: 1;
+}
+
+#slideshow-images-list {
+    list-style: none;
+    max-height: 160px;
+    overflow-y: auto;
+    border: 1px solid rgba(255,255,255,0.03);
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+}
+
+#slideshow-images-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.thumb {
+    width: 48px;
+    height: 32px;
+    object-fit: cover;
+    border-radius: 0.25rem;
+    margin-right: 0.5rem;
+}
+
+.image-actions button {
+    background: none;
+    color: var(--danger-color);
+    border: none;
+    cursor: pointer;
 }
